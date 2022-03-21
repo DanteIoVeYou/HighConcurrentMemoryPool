@@ -1,16 +1,27 @@
 #pragma once
+
+// 32位操作系统，有32个比特位数量的页号；64位操作系统，有64个比特位数量的页号
+#ifdef _WIN64 // _Win64
+typedef unsigned long long PAGE_SIZE;
+#elif _WIN32 // _Win32
+typedef size_t PAGE_SIZE;
+#endif 
+
+
+
 #include <iostream>
+#include <algorithm>
 #include <string>
 #include <vector>
 #include <unordered_map>
 #include <cassert>
+#include <thread>
+#include <mutex>
+static const int THREAD_CACHE_MAX_ALLOCATE_BYTES = 256 * 1024; // ThreadCache 一次分配给线程的最大内存
+static const int HASH_BUCKET_SIZE = 208;
 
-static const int THREAD_CACHE_MAX_ALLOCATE_BYTES = 236 * 1024;
-static const int Hash_BUCKET_SIZE = 208;
 
-
-
-inline void*& NextObj(void* obj) { // 取出一块地址的头上4/8字节存放的地址
+static void*& NextObj(void* obj) { // 取出一块地址的头上4/8字节存放的地址
 	return *(void**)obj;	
 }
 
@@ -91,7 +102,7 @@ public:
 			return _RoundUp(size, alignNums[4]);
 		}
 		else {
-			assert(false);
+			return -1; // size超过允许的最大值 THREAD_CACHE_MAX_ALLOCATE_BYTES
 		}
 	}
 	
@@ -115,11 +126,53 @@ public:
 			return _Index(size, alignNums[4], sizeGroups[0]) + indexDivivors[0] + indexDivivors[1] + indexDivivors[2] + indexDivivors[3];
 		}
 		else {
-			assert(false);
+			return -1; // size超过允许的最大值 THREAD_CACHE_MAX_ALLOCATE_BYTES
 		}
 	}
-
-
+	static size_t ApplyBatchSizeFromCentralCache(size_t size) {
+		if (size == 0) {
+			return 0;
+		}
+		size_t batchSize = THREAD_CACHE_MAX_ALLOCATE_BYTES / size;
+		if (batchSize < 2) {
+			batchSize = 2;
+		}
+		else if (batchSize > 256) {
+			batchSize = 256;
+		}
+		return batchSize;
+	}
 };
 
 
+
+struct Span {
+	PAGE_SIZE _pageID = 0;
+	size_t _usedCount = 0;
+	Span* _next = nullptr;
+	Span* _prev = nullptr;
+	void* _freeList = nullptr;
+};
+
+class SpanList {
+public:
+	void Insert(Span* pos, Span* newSpan) { // 在名为pos的Span后面插入新的Span
+		assert(newSpan);
+		assert(pos);
+		pos->_next->_prev = newSpan;
+		newSpan->_prev = pos;
+		newSpan->_next = pos->_next;
+		pos->_next = newSpan;
+	}
+	void Erase(Span* pos) {
+		assert(pos);
+		assert(_head != pos);
+		Span* next = pos->_next;
+		Span* prev = pos->_prev;
+		prev->_next = next;
+		next->_prev = prev;
+	}
+private:
+	Span* _head = nullptr; // 哨兵位
+	std::mutex _mtx; // 桶锁
+};
