@@ -9,7 +9,6 @@ public:
 	void Deallocate(void* ptr, size_t size);
 private:
 	FreeList _freeLists[HASH_BUCKET_SIZE];
-	size_t _MaxSize; // 慢增长反馈调节法的每批增长后的申请的batch的用于比较的数量
 };
 
 // 静态绑定线程本地变量

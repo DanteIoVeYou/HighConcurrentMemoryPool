@@ -32,12 +32,15 @@ public:
 	FreeList() 
 		:_freeList(nullptr)
 	{}
-	void Push(void* obj) { // 头插
+	void Push(void* obj) { // 头插一个内存块
 		assert(obj != nullptr); // 当插入nullptr时，断言
 		NextObj(obj) = _freeList;
 		_freeList = obj;
 	}
-
+	void PushRange(void* start, void* end) {
+		NextObj(end) = _freeList;
+		_freeList = start;
+	}
 	void* Pop() { // 头删
 		assert(_freeList != nullptr); // 当_freeList上一个内存块也没挂时，断言
 		void* obj = _freeList;
@@ -49,6 +52,8 @@ public:
 	}
 private:
 	void* _freeList;
+public:
+	size_t _MaxSize;
 };
 
 
@@ -142,6 +147,7 @@ public:
 		}
 		return batchSize;
 	}
+
 };
 
 
@@ -174,5 +180,6 @@ public:
 	}
 private:
 	Span* _head = nullptr; // 哨兵位
+public:
 	std::mutex _mtx; // 桶锁
 };
