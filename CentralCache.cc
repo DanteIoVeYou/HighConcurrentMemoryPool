@@ -1,9 +1,52 @@
 #include "CentralCache.hpp"
-
+#include "PageCache.hpp"
 CentralCache CentralCache::_singleInstance;
 Span* CentralCache::GetOneSpan(SpanList& list, size_t size) {
 	//TODO
-	return nullptr;
+
+	size_t batchSize = SizeClass::ApplyBatchSize(size);
+	size_t sizeAllAmount = batchSize * size;
+	size_t index = SizeClass::Index(size);
+	// 从CentralCache的SpanList里面拿Span
+	// 如果SpanList有现成的Span，直接返回
+	Span* cur = list.Begin();
+	while (cur != list.End()) {
+		if (cur->_freeList == nullptr) {
+			cur = cur->_next;
+		}
+		else {
+			return cur;
+		}
+	}
+
+	// 如果SpanList没有现成的Span，向PageCache申请相对的Span页
+	
+	size_t pageSize = SizeClass::ApplyPageSize(sizeAllAmount);
+	// 在这暂时解锁，如果其他线程释放内存，不会堵塞
+	list._mtx.unlock();
+	PageCache::GetInstance()->_mtx.lock();
+	Span* span = PageCache::GetInstance()->NewSpan(pageSize); // 从PageCache中申请一个含有若干个页的Span
+	PageCache::GetInstance()->_mtx.unlock();
+
+
+	// 将Span切成若干个size大小的小内存块尾插到自由链表中
+	char* begin = (char*)(span->_pageID << PAGE_SHIFT); // 通过sapn的首页页号找到内存地址
+	char* end = begin + (span->_pageAmount << PAGE_SHIFT); // 找到内存尾部
+	span->_freeList = (void*)begin;
+	void* tail = span->_freeList; // 自由链表尾部
+	begin += size;
+	while (begin < end) {
+		 // 将页切割为size单元大小的小内存块
+		NextObj(tail) = begin;
+		tail = NextObj(tail);
+		begin += size;
+	}
+
+	// 把剩下的内存放入list
+	list._mtx.lock();
+	list.Insert(list.Begin(), span);
+	return span;
+	
 }
 
 size_t CentralCache::FenchSpanPart(void*& start, void*& end, size_t size, size_t index, size_t batchSize) {

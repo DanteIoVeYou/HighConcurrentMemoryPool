@@ -17,8 +17,12 @@ typedef size_t PAGE_SIZE;
 #include <cassert>
 #include <thread>
 #include <mutex>
+#include <memoryapi.h>
+
 static const int THREAD_CACHE_MAX_ALLOCATE_BYTES = 256 * 1024; // ThreadCache 一次分配给线程的最大内存
-static const int HASH_BUCKET_SIZE = 208;
+static const int THREAD_CACHE_AND_CENTRAL_CACHE_HASH_BUCKET_SIZE = 208;
+static const int PAGE_CACHE_HASH_BUCKET_SIZE = 128;
+static const int PAGE_SHIFT = 13; // 一页2^13bytes
 
 
 static void*& NextObj(void* obj) { // 取出一块地址的头上4/8字节存放的地址
@@ -134,7 +138,7 @@ public:
 			return -1; // size超过允许的最大值 THREAD_CACHE_MAX_ALLOCATE_BYTES
 		}
 	}
-	static size_t ApplyBatchSizeFromCentralCache(size_t size) {
+	static size_t ApplyBatchSize(size_t size) {
 		if (size == 0) {
 			return 0;
 		}
@@ -148,20 +152,39 @@ public:
 		return batchSize;
 	}
 
+	static size_t ApplyPageSize(size_t sizeAllAmount) {
+		size_t pageSize = (sizeAllAmount >> PAGE_SHIFT);
+		if (sizeAllAmount == 0 ) {
+			return 1;
+		}
+		else {
+			return pageSize;
+		}  
+	}
 };
 
 
 
 struct Span {
-	PAGE_SIZE _pageID = 0;
-	size_t _usedCount = 0;
-	Span* _next = nullptr;
-	Span* _prev = nullptr;
-	void* _freeList = nullptr;
+	PAGE_SIZE _pageID = 0; // 页号
+	size_t _pageAmount = 0; // Span中页的数量
+	size_t _usedCount = 0; // 自由链表使用的小块内存数量
+	Span* _next = nullptr; // 前一个Span
+	Span* _prev = nullptr; // 后一个Span
+	void* _freeList = nullptr; // 挂小块内存的自由链表
 };
 
-class SpanList {
+class SpanList { // 带头双向循环链表，节点是Span页
 public:
+	Span* Begin() {
+		return _head->_next;
+	}
+	Span* End() {
+		return _head;
+	}
+	bool Empty() {
+		return _head == _head->_next;
+	}
 	void Insert(Span* pos, Span* newSpan) { // 在名为pos的Span后面插入新的Span
 		assert(newSpan);
 		assert(pos);
@@ -178,8 +201,29 @@ public:
 		prev->_next = next;
 		next->_prev = prev;
 	}
+	Span* PopFront() {
+		assert(!Empty());
+		Span* span = _head->_next;
+		Erase(span);
+		return span;
+	}
+	void PushFront(Span* span) {
+		Insert(Begin(), span);
+	}
 private:
 	Span* _head = nullptr; // 哨兵位
 public:
 	std::mutex _mtx; // 桶锁
 };
+
+
+inline static void* SystemAlloc(size_t kpage)
+{
+#ifdef _WIN32
+	void* ptr = VirtualAlloc(0, kpage * (1 << 12), MEM_COMMIT | MEM_RESERVE,
+		PAGE_READWRITE);
+#endif
+	if (ptr == nullptr)
+		throw std::bad_alloc();
+	return ptr;
+}
