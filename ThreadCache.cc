@@ -7,7 +7,7 @@ void* ThreadCache::FetchFromCentralCache(size_t size, size_t index) {
 	// 采用慢增长反馈调节法确定申请的一批内存块数，对于大内存，申请的少一点；对于小内存，申请的多一点
 
 	size_t batchSize = SizeClass::ApplyBatchSize(size); // ApplyBatchSizeFromCentralCache计算batchSize
-	batchSize = std::min(_freeLists[index]._MaxSize, batchSize); // batchSize和不断增长的_MaxSize比较，取较小值，保证一个批次大块内存的分配不会多，小块内存的分配一次比一次增多
+	batchSize = (std::min)(_freeLists[index]._MaxSize, batchSize); // batchSize和不断增长的_MaxSize比较，取较小值，保证一个批次大块内存的分配不会多，小块内存的分配一次比一次增多
 	if (batchSize == _freeLists[index]._MaxSize) {
 		_freeLists[index]._MaxSize++;
 	}
@@ -20,7 +20,7 @@ void* ThreadCache::FetchFromCentralCache(size_t size, size_t index) {
 		return start;
 	}
 	else { // 拿多了的内存块挂到自由链表上，以备后续再次分配
-		_freeLists[index].PushRange(NextObj(start), end); // start后一个~end
+		_freeLists[index].PushRange(NextObj(start), end, actualSize - 1); // start后一个~end
 		return start;
 	}
 }
@@ -45,4 +45,17 @@ void ThreadCache::Deallocate(void* ptr, size_t size) {
 
 	size_t index = SizeClass::Index(size); // 找到对应的桶
 	_freeLists[index].Push(ptr); // 在编号为index的桶里面头插释放的内存块
+
+	// 如果桶里的内存块太多，就释放掉一些到CentralCache中
+	if (_freeLists[index].Size() >= _freeLists[index]._MaxSize) {
+		FreeForListTooLong(_freeLists[index], index);
+	}
+}
+
+void ThreadCache::FreeForListTooLong(FreeList& list, size_t index) {
+	void* start = nullptr;
+	void* end = nullptr;
+	list.PopRange(start, end, list._MaxSize);
+	// 还给Centrald的Span
+	CentralCache::GetSingleInstance()->FreeFromThreadToSpan(start, end, index);
 }

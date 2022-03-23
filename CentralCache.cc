@@ -66,3 +66,13 @@ size_t CentralCache::FenchSpanPart(void*& start, void*& end, size_t size, size_t
 	spanLists[index]._mtx.unlock(); // ½âËø
 	return actualBatchSize;
 }
+
+
+void CentralCache::FreeFromThreadToSpan(void* start, void* end, size_t index) {
+	spanLists[index]._mtx.lock(); // Í°Ëø
+
+
+
+
+	spanLists[index]._mtx.unlock(); // ½â¿ªÍ°Ëø
+}

@@ -3,7 +3,11 @@
 // 32位操作系统，有32个比特位数量的页号；64位操作系统，有64个比特位数量的页号
 #ifdef _WIN64 // _Win64
 typedef unsigned long long PAGE_SIZE;
+#include <windows.h>	
+
 #elif _WIN32 // _Win32
+#include <windows.h>	
+
 typedef size_t PAGE_SIZE;
 #endif 
 
@@ -17,7 +21,7 @@ typedef size_t PAGE_SIZE;
 #include <cassert>
 #include <thread>
 #include <mutex>
-#include <memoryapi.h>
+
 
 static const int THREAD_CACHE_MAX_ALLOCATE_BYTES = 256 * 1024; // ThreadCache 一次分配给线程的最大内存
 static const int THREAD_CACHE_AND_CENTRAL_CACHE_HASH_BUCKET_SIZE = 208;
@@ -40,24 +44,43 @@ public:
 		assert(obj != nullptr); // 当插入nullptr时，断言
 		NextObj(obj) = _freeList;
 		_freeList = obj;
+		++_size;
 	}
-	void PushRange(void* start, void* end) {
+	void PushRange(void* start, void* end, size_t n) {
 		NextObj(end) = _freeList;
 		_freeList = start;
+		_size += n;
 	}
-	void* Pop() { // 头删
+	void* Pop() { // 头删并且弹出头上内存块
 		assert(_freeList != nullptr); // 当_freeList上一个内存块也没挂时，断言
 		void* obj = _freeList;
 		_freeList = NextObj(obj);
+		--_size;
 		return obj;
+	}
+	void* PopRange(void*& start, void*& end,  size_t n) {
+		assert(n > 0);
+		start = end = _freeList;
+		for (size_t i = 0; i < n - 1; i++) {
+			end = NextObj(end);
+		}
+		void* newHead = NextObj(end);
+		NextObj(end) = nullptr;
+		_freeList = newHead;
+		_size -= n;
 	}
 	bool Empty() {
 		return _freeList == nullptr;
 	}
+
+	size_t Size() {
+		return _size;
+	}
 private:
 	void* _freeList;
+	size_t _size = 0;
 public:
-	size_t _MaxSize;
+	size_t _MaxSize = 1;
 };
 
 
