@@ -57,5 +57,5 @@ void ThreadCache::FreeForListTooLong(FreeList& list, size_t index) {
 	void* end = nullptr;
 	list.PopRange(start, end, list._MaxSize);
 	// 还给Centrald的Span
-	CentralCache::GetSingleInstance()->FreeFromThreadToSpan(start, end, index);
+	CentralCache::GetSingleInstance()->FreeFromThreadToSpan(start, end, index); // 把ThreadCache释放的资源挂到CentralCache的Span里面去
 }

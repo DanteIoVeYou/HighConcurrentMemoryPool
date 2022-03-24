@@ -58,7 +58,7 @@ public:
 		--_size;
 		return obj;
 	}
-	void* PopRange(void*& start, void*& end,  size_t n) {
+	void PopRange(void*& start, void*& end,  size_t n) {
 		assert(n > 0);
 		start = end = _freeList;
 		for (size_t i = 0; i < n - 1; i++) {
@@ -194,7 +194,7 @@ struct Span {
 	size_t _usedCount = 0; // 自由链表使用的小块内存数量
 	Span* _next = nullptr; // 前一个Span
 	Span* _prev = nullptr; // 后一个Span
-	void* _freeList = nullptr; // 挂小块内存的自由链表
+	void* _freeList = nullptr; // 挂切好的小块内存的自由链表
 };
 
 class SpanList { // 带头双向循环链表，节点是Span页

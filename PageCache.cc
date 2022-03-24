@@ -19,6 +19,11 @@ Span* PageCache::NewSpan(size_t pageSize) {
 			newSpan->_pageAmount = pageSize;
 			oldSpan->_pageAmount -= pageSize;
 			_spanLists[i - pageSize].PushFront(oldSpan);
+
+			// 若干个页都属于一个Span
+			for (size_t i = 0; i < newSpan->_pageAmount; i++) {
+				_idAddressMap[newSpan->_pageID + i] = newSpan;
+			}
 			return newSpan;
 		}
 	}
@@ -33,4 +38,22 @@ Span* PageCache::NewSpan(size_t pageSize) {
 	_spanLists[PAGE_CACHE_HASH_BUCKET_SIZE - 1].PushFront(biggestSpan); // 将Span放入带头双向循环链表
 
 	return NewSpan(pageSize); // 递归调用NewSpan（复用）
+}
+
+
+Span* PageCache::GetSpanViaAddress(void* addr) {
+	PAGE_SIZE pageID = (PAGE_SIZE)addr >> PAGE_SHIFT;
+	auto ret = _idAddressMap.find(pageID);
+	if (ret != _idAddressMap.end()) {
+		return _idAddressMap[pageID];
+	}
+	else {
+		assert(false); 
+		return nullptr;
+	}
+}
+
+
+void PageCache::GiveSpanToPage(Span* span) {
+
 }

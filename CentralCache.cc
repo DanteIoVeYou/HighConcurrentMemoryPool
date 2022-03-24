@@ -71,7 +71,26 @@ size_t CentralCache::FenchSpanPart(void*& start, void*& end, size_t size, size_t
 void CentralCache::FreeFromThreadToSpan(void* start, void* end, size_t index) {
 	spanLists[index]._mtx.lock(); // Í°Ëø
 
+	while (start) {
+		void* next = NextObj(start);
+		Span* span = PageCache::GetInstance()->GetSpanViaAddress(start);
+		NextObj(start) = span->_freeList;
+		span->_freeList = start;
+		span->_usedCount--;
+		if (span->_usedCount == 0) {
+			spanLists[index].Erase(span);
+			span->_prev = nullptr;
+			span->_next = nullptr;
+			span->_freeList = nullptr;
 
+			spanLists[index]._mtx.unlock();
+			PageCache::GetInstance()->_mtx.lock();
+			PageCache::GetInstance()->GiveSpanToPage(span);
+			PageCache::GetInstance()->_mtx.unlock();
+			spanLists[index]._mtx.lock();
+		}
+		start = next;
+	}
 
 
 	spanLists[index]._mtx.unlock(); // ½â¿ªÍ°Ëø
