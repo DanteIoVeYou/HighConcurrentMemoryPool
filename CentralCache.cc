@@ -1,7 +1,7 @@
 #include "CentralCache.hpp"
 #include "PageCache.hpp"
 CentralCache CentralCache::_singleInstance;
-Span* CentralCache::GetOneSpan(SpanList& list, size_t size) {
+Span* CentralCache::GetOneSpan(SpanList& list, size_t size) { // 去对应的哈希桶下面找有没有Span
 	//TODO
 
 	size_t batchSize = SizeClass::ApplyBatchSize(size);

@@ -1,7 +1,7 @@
 #pragma once
 #include "common.hpp"
 
-class PageCache {
+class PageCache { // 单例模式————饿汉模式
 public:
 	static PageCache* GetInstance() {
 		return &_singleInstance;

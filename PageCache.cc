@@ -20,7 +20,7 @@ Span* PageCache::NewSpan(size_t pageSize) {
 			oldSpan->_pageAmount -= pageSize;
 			_spanLists[i - pageSize].PushFront(oldSpan);
 
-			// 若干个页都属于一个Span
+			// 若干个页都属于一个Span，未分出去的老的页号对应老的Span，分出去的新的页号对应新的Span
 			for (size_t i = 0; i < newSpan->_pageAmount; i++) {
 				_idAddressMap[newSpan->_pageID + i] = newSpan;
 			}

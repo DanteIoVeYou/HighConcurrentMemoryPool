@@ -2,7 +2,7 @@
 #include "common.hpp"
 
 
-class ThreadCache { // 封装ThreadCache类，管理无锁的、小于256kb的内存申请
+class ThreadCache { // 封装ThreadCache类，管理无锁的、小于256KB的内存申请
 public:
 	void* FetchFromCentralCache(size_t size, size_t index);
 	void* Allocate(size_t size);

@@ -87,7 +87,7 @@ public:
 class SizeClass {
 private:
 
-	static inline size_t _Index(size_t size, size_t alignNum, size_t lastNum) {
+	static inline size_t _Index(size_t size, size_t alignNum, size_t lastNum) { 
 		size_t returnIndex;
 		if (size % alignNum == 0) {
 			returnIndex = (size - lastNum) / alignNum;
@@ -97,7 +97,7 @@ private:
 		}
 		return returnIndex;
 	}
-	static inline size_t _RoundUp(size_t size, size_t alignNum) {
+	static inline size_t _RoundUp(size_t size, size_t alignNum) { 
 		size_t returnSize;
 		if (size % alignNum == 0) {
 			returnSize = size;
@@ -110,7 +110,7 @@ private:
 public:
 
 	// 静态成员函数没有隐藏的this指针，不能访问非静态成员(成员函数 + 成员变量，因为访问需要用到this指针)
-	static size_t RoundUp(size_t size) { // 返回哈希桶的下标
+	static size_t RoundUp(size_t size) { // 返回哈希桶的下标，求对齐数
 		static size_t alignNums[5] = { 8,16,128, 1024, 8192 }; // 不同的对齐数
 		/*	申请内存大小(byte)		对齐数(byye)	*/
 		/*	1-128					8			*/
@@ -138,7 +138,7 @@ public:
 		}
 	}
 	
-	static size_t Index(size_t size) { // 提供向上取整的内存对齐值
+	static size_t Index(size_t size) { // 提供向上取整的内存对齐值，求哈希桶下标
 		static size_t alignNums[5] = { 8,16,128, 1024, 8192 }; // 不同的对齐数
 		static size_t indexDivivors[4] = { 16, 56, 56, 56 };
 		static size_t sizeGroups[4] = { 128, 1024, 8192, 65536 };
@@ -161,7 +161,7 @@ public:
 			return -1; // size超过允许的最大值 THREAD_CACHE_MAX_ALLOCATE_BYTES
 		}
 	}
-	static size_t ApplyBatchSize(size_t size) {
+	static size_t ApplyBatchSize(size_t size) { // 求向CentralCache申请一批内存块的数量
 		if (size == 0) {
 			return 0;
 		}
@@ -175,7 +175,7 @@ public:
 		return batchSize;
 	}
 
-	static size_t ApplyPageSize(size_t sizeAllAmount) {
+	static size_t ApplyPageSize(size_t sizeAllAmount) { // CentralCache一次向PageCache申请的页数
 		size_t pageSize = (sizeAllAmount >> PAGE_SHIFT);
 		if (sizeAllAmount == 0 ) {
 			return 1;
@@ -195,6 +195,7 @@ struct Span {
 	Span* _next = nullptr; // 前一个Span
 	Span* _prev = nullptr; // 后一个Span
 	void* _freeList = nullptr; // 挂切好的小块内存的自由链表
+	bool _isUsed = false;
 };
 
 class SpanList { // 带头双向循环链表，节点是Span页
@@ -240,8 +241,7 @@ public:
 };
 
 
-inline static void* SystemAlloc(size_t kpage)
-{
+inline static void* SystemAlloc(size_t kpage) { // 系统调用接口，以页为单位向堆申请内存
 #ifdef _WIN32
 	void* ptr = VirtualAlloc(0, kpage * (1 << 12), MEM_COMMIT | MEM_RESERVE,
 		PAGE_READWRITE);
