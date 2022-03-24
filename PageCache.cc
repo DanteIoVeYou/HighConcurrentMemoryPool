@@ -55,5 +55,5 @@ Span* PageCache::GetSpanViaAddress(void* addr) {
 
 
 void PageCache::GiveSpanToPage(Span* span) {
-
+	_spanLists[span->_pageAmount].PushFront(span);
 }

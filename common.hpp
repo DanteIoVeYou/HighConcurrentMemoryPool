@@ -195,7 +195,7 @@ struct Span {
 	Span* _next = nullptr; // 前一个Span
 	Span* _prev = nullptr; // 后一个Span
 	void* _freeList = nullptr; // 挂切好的小块内存的自由链表
-	bool _isUsed = false;
+	bool _isUsed = false; // 是否使用过
 };
 
 class SpanList { // 带头双向循环链表，节点是Span页

@@ -15,6 +15,8 @@ private:
 	PageCache(const PageCache& pc) = delete;
 	PageCache operator=(const PageCache& pc) = delete;
 	static PageCache _singleInstance;
+	
+
 	SpanList _spanLists[PAGE_CACHE_HASH_BUCKET_SIZE]; // Span的里包含若干张（1张-128张）8kb的页
 	std::unordered_map<PAGE_SIZE, Span*> _idAddressMap;
 

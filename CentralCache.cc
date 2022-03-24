@@ -77,7 +77,7 @@ void CentralCache::FreeFromThreadToSpan(void* start, void* end, size_t index) {
 		NextObj(start) = span->_freeList;
 		span->_freeList = start;
 		span->_usedCount--;
-		if (span->_usedCount == 0) {
+		if (span->_usedCount == 0) { // Span的页全部归还
 			spanLists[index].Erase(span);
 			span->_prev = nullptr;
 			span->_next = nullptr;
